@@ -4,7 +4,17 @@
 
 NoteSlayer, gerçek bir enstrüman (gitar) kullanarak oynanan bir arena savunma oyunudur. Mikrofon aracılığıyla çaldığın notalar algılanır ve ekrandaki düşmanları yok eder.
 
----
+## 📸 Ekran Görüntüleri
+
+<p align="center">
+  <img src="assets/screenshots/menu.png" alt="Ana Menü" width="100%">
+  <br><em>Ana Menü — Zorluk seçimi ve akort özelliği</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/gameplay.png" alt="Oyun İçi" width="100%">
+  <br><em>Oyun İçi — Düşmanlar her yönden karaktere doğru geliyor</em>
+</p>
 
 ## 🎮 Nasıl Oynanır?
 
