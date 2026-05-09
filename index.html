@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="description"
+        content="NoteSlayer — Enstrümanınla düşmanları yok et! Gerçek zamanlı nota algılama ile oynanan arena savunma oyunu.">
+    <meta name="theme-color" content="#0a0a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>NoteSlayer — Müzikle Savaş</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Game Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Error Message -->
+    <div id="error-message" class="error-banner" style="display:none;"></div>
+
+    <!-- ===== MAIN MENU ===== -->
+    <div id="menu-overlay" class="overlay">
+        <div class="menu-container">
+            <!-- Animated title -->
+            <div class="menu-title-container">
+                <h1 class="menu-title">
+                    <span class="title-note">♪</span>
+                    <span class="title-text">NOTE</span><span class="title-accent">SLAYER</span>
+                    <span class="title-note">♪</span>
+                </h1>
+                <p class="menu-subtitle">Enstrümanınla Düşmanları Yok Et</p>
+            </div>
+
+            <!-- Instrument info -->
+            <div class="menu-info-card">
+                <div class="info-icon">🎸</div>
+                <div class="info-text">
+                    <strong>Gitar</strong> ile oyna
+                    <span class="info-hint">Gitarını bir silaha dönüştür!</span>
+                </div>
+            </div>
+
+            <!-- Difficulty Selection -->
+            <div class="difficulty-selector">
+                <p class="selector-label">Zorluk Seviyesi</p>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn" data-difficulty="EASY">
+                        <span class="diff-icon">🟢</span>
+                        <span class="diff-name">Kolay</span>
+                        <span class="diff-desc">6 nota, yavaş düşmanlar</span>
+                    </button>
+                    <button class="difficulty-btn active" data-difficulty="NORMAL">
+                        <span class="diff-icon">🟡</span>
+                        <span class="diff-name">Normal</span>
+                        <span class="diff-desc">15 nota, orta hız</span>
+                    </button>
+                    <button class="difficulty-btn" data-difficulty="HARD">
+                        <span class="diff-icon">🔴</span>
+                        <span class="diff-name">Zor</span>
+                        <span class="diff-desc">20+ nota, hızlı düşmanlar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="menu-action-buttons">
+                <button id="btn-start" class="btn-primary">
+                    <span class="btn-icon">▶</span>
+                    <span>BAŞLA</span>
+                </button>
+                <button id="btn-tune" class="btn-tune">
+                    <span class="btn-tune-icon">🎸</span>
+                    <span>Akort Et</span>
+                </button>
+            </div>
+
+            <!-- Instructions -->
+            <div class="menu-instructions">
+                <div class="instruction-item">
+                    <span class="instr-num">1</span>
+                    <span>Mikrofon izni ver</span>
+                </div>
+                <div class="instruction-item">
+                    <span class="instr-num">2</span>
+                    <span>Gitarını hazırla</span>
+                </div>
+                <div class="instruction-item">
+                    <span class="instr-num">3</span>
+                    <span>Düşmanların üzerindeki notayı çal</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CALIBRATION ===== -->
+    <div id="calibration-overlay" class="overlay">
+        <div class="calibration-container glass-panel">
+            <h2 class="calibration-title">🎸 Kalibrasyon</h2>
+            <p class="calibration-desc">Gitarından birkaç farklı nota çal, mikrofonun düzgün çalıştığını kontrol edelim.
+            </p>
+
+            <div id="calibration-notes" class="calibration-notes">
+                <span class="calibration-note pending">?</span>
+                <span class="calibration-note pending">?</span>
+                <span class="calibration-note pending">?</span>
+            </div>
+
+            <p id="calibration-progress" class="calibration-progress">0 / 3 nota algılandı</p>
+
+            <div class="calibration-visualizer" id="calibration-visualizer">
+                <div class="pulse-ring"></div>
+                <div class="mic-icon">🎤</div>
+            </div>
+
+            <button id="btn-skip-calibration" class="btn-secondary">
+                Atla & Başla →
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== PAUSE OVERLAY ===== -->
+    <div id="pause-overlay" class="overlay">
+        <div class="pause-container glass-panel">
+            <h2 class="pause-title">⏸ DURAKLATILDI</h2>
+            <p class="pause-hint">Devam etmek için ESC'ye bas</p>
+        </div>
+    </div>
+
+    <!-- ===== GAME OVER ===== -->
+    <div id="gameover-overlay" class="overlay">
+        <div class="gameover-container">
+            <h2 class="gameover-title">OYUN BİTTİ</h2>
+
+            <div id="new-highscore-label" class="new-highscore" style="display: none;">
+                🏆 YENİ REKOR! 🏆
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Skor</span>
+                    <span class="stat-value" id="stat-score">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Dalga</span>
+                    <span class="stat-value" id="stat-wave">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Maks Kombo</span>
+                    <span class="stat-value" id="stat-combo">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Öldürme</span>
+                    <span class="stat-value" id="stat-kills">0</span>
+                </div>
+            </div>
+
+            <div class="highscore-display">
+                <span class="highscore-label">En Yüksek Skor:</span>
+                <span class="highscore-value" id="stat-highscore">0</span>
+            </div>
+
+            <div class="gameover-buttons">
+                <button id="btn-play-again" class="btn-primary">
+                    <span class="btn-icon">🔄</span>
+                    <span>TEKRAR OYNA</span>
+                </button>
+                <button id="btn-main-menu" class="btn-secondary">
+                    Ana Menü
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TUNER OVERLAY ===== -->
+    <div id="tuner-overlay" class="overlay">
+        <div class="tuner-container glass-panel">
+            <h2 class="tuner-title">🎸 Akort</h2>
+            <p class="tuner-subtitle">Bir tel çal — notanın doğruluğunu gör</p>
+
+            <div class="tuner-note-display">
+                <span id="tuner-note" class="tuner-note">—</span>
+                <span id="tuner-freq" class="tuner-freq">0 Hz</span>
+            </div>
+
+            <div class="tuner-bar">
+                <div class="tuner-bar-track">
+                    <div class="tuner-bar-center"></div>
+                    <div id="tuner-bar-fill" class="tuner-bar-fill"></div>
+                </div>
+                <div class="tuner-bar-labels">
+                    <span>♭ Pes</span>
+                    <span>Doğru</span>
+                    <span>Tiz ♯</span>
+                </div>
+            </div>
+
+            <div id="tuner-status" class="tuner-status">Bir nota çal...</div>
+            <div id="tuner-cents" class="tuner-cents"></div>
+
+            <div class="tuner-strings">
+                <span class="tuner-string">E2</span>
+                <span class="tuner-string">A2</span>
+                <span class="tuner-string">D3</span>
+                <span class="tuner-string">G3</span>
+                <span class="tuner-string">B3</span>
+                <span class="tuner-string">E4</span>
+            </div>
+
+            <button id="btn-close-tuner" class="btn-secondary">
+                ✕ Kapat
+            </button>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
