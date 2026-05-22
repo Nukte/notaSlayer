@@ -242,6 +242,11 @@ export class Game {
         // Show mobile pause button
         this.inputHandler.showMobilePause(true);
 
+        // Set splitter spawn callback
+        this.enemyManager.onSplitSpawn = (count) => {
+            // Splitter children don't count toward wave total
+        };
+
         // Start first wave
         this._startNextWave();
         this.state = GAME_STATES.PLAYING;
@@ -305,6 +310,7 @@ export class Game {
 
             // Fire projectile from player to enemy
             const color = enemy.type.color;
+            const matchedNote = note.name;
             this.particleManager.fireProjectile(
                 this.player.x, this.player.y,
                 enemy,
@@ -315,7 +321,7 @@ export class Game {
                     enemy.projectileIncoming = false;
                     if (enemy.dying || !enemy.alive) return;
 
-                    const killed = enemy.hit();
+                    const killed = enemy.hit(matchedNote);
                     if (killed) {
                         this._onEnemyKilled(enemy);
                     } else {
@@ -325,7 +331,7 @@ export class Game {
             );
 
             // Player fires animation
-            this.player.showShield(enemy.note);
+            this.player.showShield(enemy.displayNote);
         }
 
         // Update accuracy in HUD

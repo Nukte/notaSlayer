@@ -111,25 +111,28 @@ export class DifficultyManager {
     }
 
     /**
-     * Determine what type of enemy to spawn
+     * Determine what type of enemy to spawn using weight-based table
      * @returns {object} Enemy type config
      */
     getEnemyType() {
-        const roll = Math.random();
-
-        // Boss wave — include boss enemies
+        // Boss wave — force boss enemies first
         if (this.isBossWave() && this.enemiesSpawnedThisWave < Math.ceil(this.wave / BOSS_WAVE_INTERVAL)) {
             return ENEMY_TYPES.BOSS;
         }
 
-        // Elite enemies after certain wave
-        if (this.wave >= this.settings.eliteStartWave && roll < 0.15 + this.wave * 0.01) {
-            return ENEMY_TYPES.ELITE;
-        }
+        // Filter spawn table by minWave
+        const table = this.settings.spawnTable.filter(entry => this.wave >= entry.minWave);
 
-        // Fast enemies become more common
-        if (roll < 0.3 + this.wave * 0.02) {
-            return ENEMY_TYPES.FAST;
+        // Calculate total weight
+        const totalWeight = table.reduce((sum, entry) => sum + entry.weight, 0);
+
+        // Weighted random pick
+        let roll = Math.random() * totalWeight;
+        for (const entry of table) {
+            roll -= entry.weight;
+            if (roll <= 0) {
+                return ENEMY_TYPES[entry.type];
+            }
         }
 
         return ENEMY_TYPES.NORMAL;
@@ -137,15 +140,30 @@ export class DifficultyManager {
 
     /**
      * Generate enemy config for spawning
-     * @returns {object} { note, type, speedMultiplier }
+     * @returns {object} { notes, type, speedMultiplier }
      */
     generateEnemy() {
         const type = this.getEnemyType();
         const notePool = this.getNotePool();
-        const note = randomPick(notePool);
         const speedMul = this.getSpeedMultiplier();
+        const noteCount = type.noteCount || 1;
 
-        return { note, type, speedMultiplier: speedMul };
+        let notes;
+        if (noteCount > 1) {
+            notes = this._pickUniqueNotes(notePool, noteCount);
+        } else {
+            notes = [randomPick(notePool)];
+        }
+
+        return { notes, type, speedMultiplier: speedMul };
+    }
+
+    /**
+     * Pick N unique notes from the pool
+     */
+    _pickUniqueNotes(pool, count) {
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, Math.min(count, shuffled.length));
     }
 
     /**

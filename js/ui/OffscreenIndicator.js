@@ -107,7 +107,7 @@ export class OffscreenIndicator {
         ctx.font = 'bold 10px "Orbitron", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(enemy.note, 0, -size - 6);
+        ctx.fillText(enemy.displayNote, 0, -size - 6);
 
         ctx.restore();
     }

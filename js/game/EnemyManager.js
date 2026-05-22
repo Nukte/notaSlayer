@@ -4,45 +4,78 @@
 // ============================================
 
 import { Enemy } from './Enemy.js';
-import { randomEdgePosition, distance } from '../utils/helpers.js';
+import { ENEMY_TYPES } from '../utils/constants.js';
+import { randomEdgePosition, distance, randomPick } from '../utils/helpers.js';
 
 export class EnemyManager {
     constructor() {
         this.enemies = [];
         this.maxEnemies = 30; // Safety cap
+        this.onSplitSpawn = null; // callback for Game.js to track extra spawns
     }
 
     /**
      * Spawn a new enemy
-     * @param {object} config - { note, type, speedMultiplier }
-     * @param {number} canvasWidth
-     * @param {number} canvasHeight
-     * @param {number} playerX
-     * @param {number} playerY
+     * @param {object} config - { notes, type, speedMultiplier }
      */
     spawn(config, canvasWidth, canvasHeight, playerX, playerY) {
         if (this.enemies.length >= this.maxEnemies) return null;
 
-        // Get random position on screen edge
         const spawnPos = randomEdgePosition(canvasWidth, canvasHeight, 60);
+
+        // Support both single note and multi-note configs
+        const noteOrNotes = config.notes || [config.note];
 
         const enemy = new Enemy(
             spawnPos.x,
             spawnPos.y,
             playerX,
             playerY,
-            config.note,
+            noteOrNotes,
             config.type,
             config.speedMultiplier
         );
+
+        // Set splitter callback
+        if (config.type.splitsOnDeath) {
+            enemy.onSplit = (e) => this._spawnSplitterChildren(e, playerX, playerY);
+        }
 
         this.enemies.push(enemy);
         return enemy;
     }
 
     /**
+     * Spawn 2 mini enemies from a dying splitter
+     */
+    _spawnSplitterChildren(parent, playerX, playerY) {
+        const notePool = ['C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3'];
+        const offsets = [{ x: -30, y: -15 }, { x: 30, y: 15 }];
+
+        for (const offset of offsets) {
+            const miniNote = randomPick(notePool);
+            const mini = new Enemy(
+                parent.x + offset.x,
+                parent.y + offset.y,
+                playerX,
+                playerY,
+                [miniNote],
+                ENEMY_TYPES.SPLITTER_MINI,
+                1.5
+            );
+            mini.spawnTimer = 200;
+            mini.spawnDuration = 200;
+            this.enemies.push(mini);
+        }
+
+        // Notify Game.js of extra spawns
+        if (this.onSplitSpawn) {
+            this.onSplitSpawn(2);
+        }
+    }
+
+    /**
      * Find the closest enemy matching a note (without applying damage).
-     * Uses single-pass min-distance instead of filter+sort for O(n) performance.
      */
     findTarget(noteName, playerX, playerY) {
         let closest = null;
@@ -61,10 +94,8 @@ export class EnemyManager {
         return closest;
     }
 
-
     /**
      * Check for enemies that have reached the player
-     * @returns {Enemy[]} Enemies that collided with the player
      */
     checkPlayerCollisions(playerX, playerY, playerRadius) {
         const colliding = [];
@@ -85,7 +116,6 @@ export class EnemyManager {
         for (const enemy of this.enemies) {
             enemy.update(deltaTime, playerX, playerY);
         }
-        // Batch remove dead enemies (single filter instead of per-item splice)
         this.enemies = this.enemies.filter(e => e.alive);
     }
 
@@ -98,23 +128,14 @@ export class EnemyManager {
         }
     }
 
-    /**
-     * Get count of active (non-dying) enemies
-     */
     get activeCount() {
         return this.enemies.filter(e => !e.dying).length;
     }
 
-    /**
-     * Get total count including dying
-     */
     get totalCount() {
         return this.enemies.length;
     }
 
-    /**
-     * Clear all enemies
-     */
     clear() {
         this.enemies = [];
     }

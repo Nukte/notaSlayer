@@ -6,17 +6,28 @@ import { ENEMY_TYPES, COLORS } from '../utils/constants.js';
 import { distance, angleTo } from '../utils/helpers.js';
 
 export class Enemy {
-    constructor(x, y, targetX, targetY, note, typeConfig, speedMultiplier = 1) {
+    constructor(x, y, targetX, targetY, noteOrNotes, typeConfig, speedMultiplier = 1) {
         this.x = x;
         this.y = y;
         this.targetX = targetX;
         this.targetY = targetY;
-        this.note = note;
         this.type = typeConfig;
+
+        // --- Multi-note system ---
+        const notesArray = Array.isArray(noteOrNotes) ? noteOrNotes : [noteOrNotes];
+        this.notes = [...notesArray];
+        this.note = this.notes[0]; // backward compat / display
+        this.notesRemaining = new Set(this.notes);
+
+        // Sequential notes (Sequence type)
+        this.isSequential = typeConfig.isSequential || false;
+        this.noteSequence = [...this.notes];
+        this.currentSequenceIndex = 0;
 
         // Movement
         this.angle = angleTo(x, y, targetX, targetY);
-        this.speed = typeConfig.baseSpeed * speedMultiplier;
+        this.baseSpeed = typeConfig.baseSpeed * speedMultiplier;
+        this.speed = this.baseSpeed;
         this.vx = Math.cos(this.angle) * this.speed;
         this.vy = Math.sin(this.angle) * this.speed;
 
@@ -37,30 +48,90 @@ export class Enemy {
         this.pulsePhase = Math.random() * Math.PI * 2;
         this.spawnTimer = 500;
         this.spawnDuration = 500;
-        this.rotationAngle = 0; // for spinning parts
+        this.rotationAngle = 0;
 
         // Warning
         this.distToPlayer = distance(x, y, targetX, targetY);
         this.dangerZone = 150;
+
+        // --- Dodger ---
+        this.canDodge = typeConfig.canDodge || false;
+        this.isDodging = false;
+        this.dodgeCooldown = 0;
+        this.dodgeDuration = 300;
+        this.dodgeTimer = 0;
+        this.dodgeDir = 1;
+
+        // --- Splitter ---
+        this.splitsOnDeath = typeConfig.splitsOnDeath || false;
+        this.onSplit = null; // callback set by EnemyManager
+
+        // Projectile tracking
+        this.projectileIncoming = false;
     }
 
-    hit() {
-        this.notesHit++;
+    /**
+     * Apply a hit from a matching note
+     */
+    hit(noteName) {
         this.hitFlashTimer = 150;
-        if (this.notesHit >= this.notesRequired) {
+
+        if (this.isSequential) {
+            // Sequence: advance to next note
+            this.currentSequenceIndex++;
             this.hp--;
-            this.notesHit = 0;
+        } else if (this.notesRemaining.size > 0 && noteName) {
+            // Multi-note: remove the matched note
+            this.notesRemaining.delete(noteName);
+            this.hp--;
+        } else {
+            // Classic single-note
+            this.notesHit++;
+            if (this.notesHit >= this.notesRequired) {
+                this.hp--;
+                this.notesHit = 0;
+            }
         }
+
         if (this.hp <= 0) {
             this.dying = true;
             this.deathTimer = this.deathDuration;
+            // Splitter callback
+            if (this.splitsOnDeath && this.onSplit) {
+                this.onSplit(this);
+            }
             return true;
         }
         return false;
     }
 
+    /**
+     * Check if this enemy can be hit by a given note
+     */
     matchesNote(noteName) {
-        return this.note === noteName;
+        if (this.isSequential) {
+            return this.noteSequence[this.currentSequenceIndex] === noteName;
+        }
+        if (this.notesRemaining.size > 0 && this.notes.length > 1) {
+            return this.notesRemaining.has(noteName);
+        }
+        return this.notes[0] === noteName;
+    }
+
+    /**
+     * Get the display text for this enemy's note label
+     */
+    get displayNote() {
+        if (this.isSequential) {
+            return this.noteSequence[this.currentSequenceIndex] || '?';
+        }
+        if (this.notesRemaining.size > 1) {
+            return [...this.notesRemaining].join('/');
+        }
+        if (this.notesRemaining.size === 1) {
+            return [...this.notesRemaining][0];
+        }
+        return this.notes[0];
     }
 
     hasReachedPlayer(playerX, playerY, playerRadius) {
@@ -78,7 +149,35 @@ export class Enemy {
 
         if (this.hitFlashTimer > 0) this.hitFlashTimer -= deltaTime;
 
-        // Move toward player
+        // Dodge cooldown
+        if (this.dodgeCooldown > 0) this.dodgeCooldown -= deltaTime;
+
+        // --- Dodger behavior ---
+        if (this.canDodge && this.projectileIncoming && !this.isDodging && this.dodgeCooldown <= 0) {
+            this.isDodging = true;
+            this.dodgeTimer = this.dodgeDuration;
+            this.dodgeDir = Math.random() > 0.5 ? 1 : -1;
+            this.dodgeCooldown = 800; // can't dodge again for 800ms
+        }
+
+        if (this.isDodging) {
+            this.dodgeTimer -= deltaTime;
+            // Move perpendicular to player direction
+            const perpAngle = this.angle + (Math.PI / 2) * this.dodgeDir;
+            this.x += Math.cos(perpAngle) * this.baseSpeed * 4 * (deltaTime / 16);
+            this.y += Math.sin(perpAngle) * this.baseSpeed * 4 * (deltaTime / 16);
+            if (this.dodgeTimer <= 0) {
+                this.isDodging = false;
+            }
+            // Still update angle and distance
+            this.angle = angleTo(this.x, this.y, playerX, playerY);
+            this.distToPlayer = distance(this.x, this.y, playerX, playerY);
+            this.pulsePhase += deltaTime * 0.005;
+            this.rotationAngle += deltaTime * 0.002;
+            return;
+        }
+
+        // Normal movement toward player
         this.angle = angleTo(this.x, this.y, playerX, playerY);
         this.vx = Math.cos(this.angle) * this.speed;
         this.vy = Math.sin(this.angle) * this.speed;
@@ -120,11 +219,16 @@ export class Enemy {
 
         // Draw based on type
         switch (this.type.name) {
-            case 'Normal': this._drawNormal(ctx, color, glow, pv); break;
-            case 'Fast':   this._drawFast(ctx, color, glow, pv); break;
-            case 'Elite':  this._drawElite(ctx, color, glow, pv); break;
-            case 'Boss':   this._drawBoss(ctx, color, glow, pv); break;
-            default:       this._drawNormal(ctx, color, glow, pv);
+            case 'Normal':       this._drawNormal(ctx, color, glow, pv); break;
+            case 'Fast':         this._drawFast(ctx, color, glow, pv); break;
+            case 'Elite':        this._drawElite(ctx, color, glow, pv); break;
+            case 'Boss':         this._drawBoss(ctx, color, glow, pv); break;
+            case 'Dual':         this._drawDual(ctx, color, glow, pv); break;
+            case 'Sequence':     this._drawSequence(ctx, color, glow, pv); break;
+            case 'Dodger':       this._drawDodger(ctx, color, glow, pv); break;
+            case 'Splitter':     this._drawSplitter(ctx, color, glow, pv); break;
+            case 'SplitterMini': this._drawNormal(ctx, color, glow, pv); break;
+            default:             this._drawNormal(ctx, color, glow, pv);
         }
 
         // Note text
@@ -291,6 +395,7 @@ export class Enemy {
 
         // Rotating aura particles
         ctx.fillStyle = color;
+        const prevAlphaBoss = ctx.globalAlpha;
         ctx.globalAlpha *= 0.3;
         for (let i = 0; i < 6; i++) {
             const a = this.rotationAngle * 2 + (i * Math.PI * 2) / 6;
@@ -301,7 +406,7 @@ export class Enemy {
             ctx.arc(px, py, 3, 0, Math.PI * 2);
             ctx.fill();
         }
-        ctx.globalAlpha /= 0.3;
+        ctx.globalAlpha = prevAlphaBoss;
 
         // Main body - irregular jagged shape
         ctx.fillStyle = color;
@@ -423,23 +528,218 @@ export class Enemy {
         const fontSize = Math.max(11, Math.min(18, this.radius * 0.55));
         ctx.font = `bold ${fontSize}px "Orbitron", monospace`;
 
-        // For Fast type, draw text centered (not rotated with body)
-        ctx.fillText(this.note, this.x, this.y + this.radius * 0.05);
+        // Use displayNote for multi-note aware label
+        ctx.fillText(this.displayNote, this.x, this.y + this.radius * 0.05);
 
-        // Notes required dots
-        if (this.notesRequired > 1) {
+        // HP dots for multi-hp enemies
+        if (this.maxHp > 1) {
             ctx.shadowBlur = 0;
             const dotY = this.y + fontSize * 0.8;
             const dotSpacing = 8;
-            const dotsW = (this.notesRequired - 1) * dotSpacing;
+            const totalDots = this.maxHp;
+            const dotsW = (totalDots - 1) * dotSpacing;
             const startX = this.x - dotsW / 2;
 
-            for (let i = 0; i < this.notesRequired; i++) {
-                ctx.fillStyle = i < this.notesHit ? '#ffffff' : 'rgba(255,255,255,0.3)';
+            for (let i = 0; i < totalDots; i++) {
+                ctx.fillStyle = i < this.hp ? '#ffffff' : 'rgba(255,255,255,0.2)';
                 ctx.beginPath();
                 ctx.arc(startX + i * dotSpacing, dotY, 2.5, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
+    }
+
+    // === DUAL: Split circle, two halves ===
+    _drawDual(ctx, color, glow, pv) {
+        const r = this.radius + pv * 2;
+        this._drawGlow(ctx, glow, r + 10 + pv * 5);
+
+        const notes = this.notes;
+        const remaining = this.notesRemaining;
+
+        // Left half
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, Math.PI * 0.5, Math.PI * 1.5);
+        ctx.closePath();
+        ctx.clip();
+        ctx.fillStyle = remaining.has(notes[0]) ? color : 'rgba(255,255,255,0.1)';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = remaining.has(notes[0]) ? 15 : 0;
+        ctx.fillRect(this.x - r - 2, this.y - r - 2, r + 2, r * 2 + 4);
+        ctx.restore();
+
+        // Right half
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, -Math.PI * 0.5, Math.PI * 0.5);
+        ctx.closePath();
+        ctx.clip();
+        ctx.fillStyle = remaining.has(notes[1]) ? color : 'rgba(255,255,255,0.1)';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = remaining.has(notes[1]) ? 15 : 0;
+        ctx.fillRect(this.x, this.y - r - 2, r + 2, r * 2 + 4);
+        ctx.restore();
+
+        // Divider line
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y - r);
+        ctx.lineTo(this.x, this.y + r);
+        ctx.stroke();
+
+        // Dark inner core
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // === SEQUENCE: Chained circles ===
+    _drawSequence(ctx, color, glow, pv) {
+        const r = this.radius * 0.6 + pv;
+        const spacing = this.radius * 1.2;
+        const activeIdx = this.currentSequenceIndex;
+
+        this._drawGlow(ctx, glow, this.radius + 12 + pv * 5);
+
+        for (let i = 0; i < this.noteSequence.length; i++) {
+            const cx = this.x + (i - 0.5) * spacing;
+            const cy = this.y;
+            const isActive = i === activeIdx;
+            const isDone = i < activeIdx;
+            const circR = isActive ? r * 1.15 : r * 0.85;
+
+            // Chain link
+            if (i > 0) {
+                const prevAlpha = ctx.globalAlpha;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.globalAlpha *= 0.5;
+                ctx.beginPath();
+                ctx.moveTo(cx - spacing + circR, cy);
+                ctx.lineTo(cx - circR, cy);
+                ctx.stroke();
+                ctx.globalAlpha = prevAlpha;
+            }
+
+            // Circle
+            const prevAlpha2 = ctx.globalAlpha;
+            ctx.fillStyle = isDone ? 'rgba(255,255,255,0.15)' : color;
+            ctx.shadowColor = isActive ? color : 'transparent';
+            ctx.shadowBlur = isActive ? 15 : 0;
+            ctx.globalAlpha *= isDone ? 0.3 : (isActive ? 1 : 0.5);
+            ctx.beginPath();
+            ctx.arc(cx, cy, circR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = prevAlpha2;
+
+            // Note label inside
+            if (!isDone) {
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowBlur = 0;
+                ctx.font = `bold ${isActive ? 13 : 10}px "Orbitron", monospace`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.noteSequence[i], cx, cy);
+            }
+        }
+    }
+
+    // === DODGER: Semi-transparent triangle ===
+    _drawDodger(ctx, color, glow, pv) {
+        const r = this.radius + pv * 2;
+        this._drawGlow(ctx, glow, r + 8 + pv * 4);
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        // Afterimage when dodging
+        if (this.isDodging) {
+            const prevA = ctx.globalAlpha;
+            ctx.globalAlpha *= 0.2;
+            ctx.fillStyle = color;
+            for (let i = 1; i <= 3; i++) {
+                const offset = -i * 8;
+                ctx.beginPath();
+                ctx.moveTo(r + offset, 0);
+                ctx.lineTo(-r * 0.5 + offset, -r * 0.6);
+                ctx.lineTo(-r * 0.5 + offset, r * 0.6);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.globalAlpha = prevA;
+        }
+
+        // Main body — triangle
+        const prevAlpha = ctx.globalAlpha;
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12;
+        ctx.globalAlpha *= this.isDodging ? 0.6 : 0.75;
+        ctx.beginPath();
+        ctx.moveTo(r, 0);
+        ctx.lineTo(-r * 0.5, -r * 0.7);
+        ctx.lineTo(-r * 0.5, r * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = prevAlpha;
+
+        // Shimmer dashed ring
+        const prevAlpha2 = ctx.globalAlpha;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha *= 0.4;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = prevAlpha2;
+
+        ctx.restore();
+    }
+
+    // === SPLITTER: Cracked sphere ===
+    _drawSplitter(ctx, color, glow, pv) {
+        const r = this.radius + pv * 2;
+        this._drawGlow(ctx, glow, r + 12 + pv * 5);
+
+        // Main body
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dark inner
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r * 0.65, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Crack line
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(this.x - 2, this.y - r * 0.8);
+        ctx.lineTo(this.x + 3, this.y - r * 0.2);
+        ctx.lineTo(this.x - 4, this.y + r * 0.3);
+        ctx.lineTo(this.x + 2, this.y + r * 0.8);
+        ctx.stroke();
+
+        // Crack branches
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(this.x + 3, this.y - r * 0.2);
+        ctx.lineTo(this.x + r * 0.4, this.y - r * 0.1);
+        ctx.stroke();
+
+        // Eye
+        this._drawEye(ctx, this.x, this.y - r * 0.1, r * 0.18, color);
     }
 }
