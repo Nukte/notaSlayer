@@ -155,6 +155,34 @@ export class Game {
         this.menu.onCloseTuner = () => {
             this.tuner.close();
         };
+
+        // Pause overlay buttons (for mobile/touch)
+        const btnResume = document.getElementById('btn-resume');
+        if (btnResume) {
+            btnResume.addEventListener('click', () => {
+                if (this.state === GAME_STATES.PAUSED) {
+                    this._resumeGame();
+                }
+            });
+        }
+        const btnPauseMenu = document.getElementById('btn-pause-menu');
+        if (btnPauseMenu) {
+            btnPauseMenu.addEventListener('click', () => {
+                if (this.state === GAME_STATES.PAUSED) {
+                    this._hideOverlay('pause-overlay');
+                    this.state = GAME_STATES.MENU;
+                    this.audioEngine.stop();
+                    this.enemyManager.clear();
+                    this.particleManager.clear();
+                    this.inputHandler.showMobilePause(false);
+                    if (this._waveTimeout) {
+                        clearTimeout(this._waveTimeout);
+                        this._waveTimeout = null;
+                    }
+                    this.menu.showMenu();
+                }
+            });
+        }
     }
 
     // ===================================
@@ -408,6 +436,9 @@ export class Game {
     }
 
     _onEnemyReachedPlayer(enemy) {
+        // Always record that the enemy was dealt with (for wave completion)
+        this.difficultyManager.recordEnemyReached();
+
         if (this.player.takeDamage()) {
             // Damage taken
             this.combo = 0;
@@ -427,9 +458,6 @@ export class Game {
             if (this.player.hp <= 1) {
                 this.backgroundRenderer.setMood('danger');
             }
-
-            // Record in difficulty manager
-            this.difficultyManager.recordEnemyReached();
 
             // Check death
             if (!this.player.isAlive()) {
