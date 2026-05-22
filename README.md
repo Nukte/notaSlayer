@@ -27,14 +27,29 @@ NoteSlayer, gerçek bir enstrüman (gitar) kullanarak oynanan bir arena savunma 
 
 ## ✨ Özellikler
 
-- 🎸 **Gerçek zamanlı nota algılama** — YIN algoritması ile pitch detection
-- 🎯 **4 düşman tipi** — Normal, Hızlı, Elite, Boss
-- 🌊 **Dalga sistemi** — Progresif zorluk artışı
-- 🔥 **Combo sistemi** — Arka arkaya öldürmelerde combo ve puan çarpanı
-- 🎛️ **Akort modu** — Oyun içi gitar akort ekranı
-- 💜 **Neon Cyberpunk tema** — Glow efektler, parçacık patlamaları, screen shake
-- 📱 **Mobil uyumlu** — Responsive tasarım
-- 🏆 **High Score** — En yüksek skor kaydı (localStorage)
+- 🎸 **Gerçek Zamanlı Nota Algılama** — Geliştirilmiş YIN algoritması ile düşük gecikmeli, hassas frekans takibi ve perde tespiti.
+- 👾 **8 Farklı Düşman Tipi** — Normal'den Dodger'a, Splitter'dan Sequence'a kadar farklı stratejiler gerektiren zengin düşman çeşitliliği.
+- 🔊 **Dinamik Ses Efektleri (SFX Motoru)** — Sentezlenmiş 7 farklı ses efekti (öldürme, hasar, kombo, oyun sonu vb.) ile yüksek işitsel geri bildirim.
+- 🧭 **Ekran Dışı Yön Göstergeleri** — Görüş alanı dışından yaklaşan düşmanların yönünü gösteren dinamik kılavuz oklar.
+- 🎨 **Atmosferik Arka Plan Sistemi** — Kombo artışları, tehlike anları veya Boss savaşlarına göre dinamik olarak renk değiştiren Cyberpunk arka plan.
+- 🌊 **Zorluk Bazlı Dalga Sistemi** — Dalga ilerledikçe artan hızlar ve zorluk ayarlarına göre optimize edilmiş düşman spawn oranları.
+- 🔥 **Combo Sistemi** — Hata yapmadan çalınan notalarla katlanan puan çarpanı ve combo görsel efektleri.
+- 🎛️ **Oyun İçi Akort Aleti (Tuner)** — Gitar teli tınısını Hz seviyesinde ölçen hassas kalibrasyon ekranı.
+- 📱 **Geliştirilmiş Mobil Deneyim** — Sağ alt köşede konumlandırılmış hızlı duraklatma butonu, duraklatma menüsü kontrolleri (Devam Et / Ana Menü) ve responsive tasarım.
+- 🏆 **Yüksek Skor Kaydı** — En yüksek puanı tarayıcı hafızasında (localStorage) saklama özelliği.
+
+## 👾 Düşman Tipleri
+
+Oyun içinde karşılaşacağınız cyberpunk yaratıklar ve özellikleri:
+
+1. **Normal (Yeşil)**: Klasik tek notalı, temel hızda hareket eden dikenli düşman.
+2. **Fast (Turuncu)**: Oyuncuya doğru yüksek hızla süzülen ok/dart şeklinde düşman.
+3. **Elite (Kırmızı)**: 2 canı olan ve yok edilmesi için 2 kez notası çalınması gereken dayanıklı altıgen.
+4. **Boss (Mor)**: Çok yüksek cana sahip, devasa boyutlarda boynuzlu kafatası şeklinde boss düşman.
+5. **Dual (Mavi)**: Üzerinde iki farklı nota barındıran, sırasız çalınabilen düşman.
+6. **Sequence (Koyu Mavi)**: Üzerindeki iki notanın sırayla çalınması gereken koordinasyon düşmanı.
+7. **Dodger (Turkuaz)**: Kendisine doğru gelen ilk atıştan kaçma yeteneğine sahip hareketli düşman.
+8. **Splitter (Açık Yeşil)**: Yok edildiğinde daha küçük ve hızlı iki adet `SplitterMini` düşmana bölünen düşman.
 
 ## 🚀 Kurulum & Çalıştırma
 
@@ -72,36 +87,41 @@ Standart gitar açık telleri:
 
 ```
 notaSlayer/
-├── index.html                 # Ana sayfa
-├── css/style.css              # Neon cyberpunk tema
+├── index.html                 # Ana sayfa (Menüler & Canvas)
+├── css/style.css              # Neon cyberpunk stil & responsive layout
 ├── js/
-│   ├── main.js                # Entry point
+│   ├── main.js                # Uygulama başlangıç noktası (Init)
 │   ├── audio/
-│   │   ├── AudioEngine.js     # Mikrofon & ses işleme
+│   │   ├── AudioEngine.js     # Mikrofon erişimi & ses işleme hattı
 │   │   ├── PitchDetector.js   # YIN pitch detection algoritması
-│   │   └── NoteMapper.js      # Frekans → nota dönüşümü
+│   │   ├── NoteMapper.js      # Frekans → nota dönüşümü
+│   │   └── SFXEngine.js       # Dinamik synth ses efektleri motoru
 │   ├── game/
-│   │   ├── Game.js            # Ana oyun döngüsü & state yönetimi
-│   │   ├── Player.js          # Oyuncu karakteri
-│   │   ├── Enemy.js           # Düşman sınıfı
-│   │   ├── EnemyManager.js    # Düşman spawn & yaşam döngüsü
-│   │   ├── DifficultyManager.js # Dalga & zorluk sistemi
-│   │   └── Particle.js        # Parçacık efektleri
+│   │   ├── Game.js            # Ana oyun loop'u ve state yönetimi
+│   │   ├── Player.js          # Oyuncu karakteri (Çizim & Kalkan)
+│   │   ├── Enemy.js           # Düşman tipleri & özel AI davranışları
+│   │   ├── EnemyManager.js    # Düşmanların spawn ve yaşam döngüsü
+│   │   ├── DifficultyManager.js # Dalga ilerleyişi & ağırlıklı spawn oranları
+│   │   ├── Particle.js        # Yok olma ve hasar efekti parçacıkları
+│   │   ├── BackgroundRenderer.js # Grid ve mood-based arka plan render'ı
+│   │   └── InputHandler.js    # Klavye ve mobil dokunmatik giriş kontrolcüsü
 │   ├── ui/
-│   │   ├── HUD.js             # Skor, can, dalga gösterimi
-│   │   ├── Menu.js            # Ana menü & kalibrasyon
-│   │   └── GameOver.js        # Oyun sonu ekranı
+│   │   ├── HUD.js             # Can, skor, kombo, dalga ve doğruluk yüzdesi
+│   │   ├── Menu.js            # Ana menü ekranı ve kalibrasyon yönetimi
+│   │   ├── GameOver.js        # Skor paneli ve tekrar oyna ekranı
+│   │   ├── TunerController.js # Akort aleti arayüzü ve ibre mekanizması
+│   │   └── OffscreenIndicator.js # Ekran dışı düşman kılavuz okları
 │   └── utils/
-│       ├── constants.js       # Oyun sabitleri
-│       └── helpers.js         # Yardımcı fonksiyonlar
+│       ├── constants.js       # Renk paletleri ve denge sabitleri
+│       └── helpers.js         # Matematiksel ve geometrik yardımcı fonksiyonlar
 ```
 
 ### Kullanılan Teknolojiler
-- **HTML5 Canvas** — Oyun render
-- **Web Audio API** — Mikrofon erişimi & frekans analizi
-- **YIN Algoritması** — Monofonik pitch detection
-- **Vanilla JavaScript** (ES6 Modules) — Sıfır bağımlılık
-- **CSS3** — Glassmorphism, neon glow, animasyonlar
+- **HTML5 Canvas** — 60 FPS akıcı oyun render'ı
+- **Web Audio API** — Mikrofon girişi analizi ve gerçek zamanlı ses sentezleme
+- **YIN Algoritması** — Kararlı monofonik pitch detection
+- **Vanilla JavaScript** (ES6 Modules) — Sıfır dış kütüphane bağımlılığı
+- **CSS3 Modern Layout** — Glassmorphism, neon glow ve responsive tasarım
 
 ## 🎯 Zorluk Seviyeleri
 
@@ -114,11 +134,14 @@ notaSlayer/
 
 ## 📋 Yol Haritası
 
-- [ ] Akor algılama (çoklu nota)
-- [ ] Farklı enstrüman desteği (piano, ukulele)
-- [ ] Ses efektleri (opsiyonel, kulaklık ile)
-- [ ] Çok oyunculu mod
-- [ ] Özel şarkı/nota dizileri ile level tasarımı
+- [x] Web Audio API synth tabanlı dinamik ses efektleri
+- [x] Mobil uyumlu duraklatma ve menü kontrolleri
+- [x] Ekran dışı düşman yön göstergeleri
+- [x] 4 yeni ileri seviye düşman tipi (Dodger, Splitter vb.)
+- [ ] Akor algılama (çoklu nota tespiti)
+- [ ] Farklı enstrüman kalibrasyon desteği (piyano, ukulele vb.)
+- [ ] Özel şarkı/nota dizileri ile bölüm tasarımı modu
+- [ ] Çok oyunculu arena modu
 
 ## 📄 Lisans
 
