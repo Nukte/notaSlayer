@@ -197,6 +197,7 @@ export class Enemy {
         ctx.shadowBlur = 0;
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.5;
+        const prevAlpha = ctx.globalAlpha;
         ctx.globalAlpha *= 0.4;
         for (let i = 1; i <= 3; i++) {
             const lx = -r * (0.5 + i * 0.35);
@@ -209,7 +210,7 @@ export class Enemy {
             ctx.lineTo(lx - r * 0.3, r * 0.15 * i);
             ctx.stroke();
         }
-        ctx.globalAlpha /= 0.4; // restore
+        ctx.globalAlpha = prevAlpha; // safe restore (no floating point drift)
 
         // Dark inner
         ctx.fillStyle = 'rgba(0,0,0,0.45)';

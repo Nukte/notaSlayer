@@ -149,6 +149,7 @@ export const DIFFICULTY_SETTINGS = {
         spawnDecreasePerWave: 150,
         eliteStartWave: 8,
         bossStartWave: 10,
+        confidenceThreshold: 0.75,
     },
     NORMAL: {
         label: 'Normal',
@@ -161,6 +162,7 @@ export const DIFFICULTY_SETTINGS = {
         spawnDecreasePerWave: 160,
         eliteStartWave: 5,
         bossStartWave: 5,
+        confidenceThreshold: 0.85,
     },
     HARD: {
         label: 'Zor',
@@ -173,6 +175,7 @@ export const DIFFICULTY_SETTINGS = {
         spawnDecreasePerWave: 180,
         eliteStartWave: 3,
         bossStartWave: 5,
+        confidenceThreshold: 0.90,
     }
 };
 

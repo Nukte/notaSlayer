@@ -35,6 +35,11 @@ export class HUD {
 
         // Wave announcement
         this.waveAnnouncement = null; // { wave, timer, duration, isBoss }
+
+        // Accuracy tracking
+        this.accuracy = 0; // 0-100 percentage
+        this.totalNotesMatched = 0;
+        this.totalNotesPlayed = 0;
     }
 
     /**
@@ -168,6 +173,9 @@ export class HUD {
 
         // --- Kill feed (right side) ---
         this._drawKillFeed(ctx, canvasWidth, canvasHeight);
+
+        // --- Accuracy (bottom-left) ---
+        this._drawAccuracy(ctx, canvasHeight);
 
         // --- Wave announcement (center) ---
         this._drawWaveAnnouncement(ctx, canvasWidth, canvasHeight);
@@ -421,6 +429,41 @@ export class HUD {
         ctx.restore();
     }
 
+    /**
+     * Set accuracy stats
+     */
+    setAccuracy(matched, total) {
+        this.totalNotesMatched = matched;
+        this.totalNotesPlayed = total;
+        this.accuracy = total > 0 ? Math.round((matched / total) * 100) : 0;
+    }
+
+    _drawAccuracy(ctx, canvasHeight) {
+        if (this.totalNotesPlayed === 0) return;
+
+        const x = 30;
+        const y = canvasHeight - 30;
+
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+
+        // Accuracy label
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.font = '11px "Orbitron", monospace';
+        ctx.fillText('İSABET', x, y - 16);
+
+        // Percentage
+        const accColor = this.accuracy >= 80 ? COLORS.successText
+                       : this.accuracy >= 50 ? COLORS.comboText
+                       : COLORS.dangerText;
+        ctx.fillStyle = accColor;
+        ctx.shadowColor = accColor;
+        ctx.shadowBlur = 4;
+        ctx.font = 'bold 16px "Orbitron", monospace';
+        ctx.fillText(`${this.accuracy}%`, x, y);
+        ctx.shadowBlur = 0;
+    }
+
     reset() {
         this.displayScore = 0;
         this.targetScore = 0;
@@ -434,5 +477,8 @@ export class HUD {
         this.detectedNoteTimer = 0;
         this.killFeed = [];
         this.waveAnnouncement = null;
+        this.accuracy = 0;
+        this.totalNotesMatched = 0;
+        this.totalNotesPlayed = 0;
     }
 }

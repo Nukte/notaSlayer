@@ -35,6 +35,9 @@ export class AudioEngine {
         // Detection loop
         this._detectLoopId = null;
         this._lastDetectTime = 0;
+
+        // Configurable confidence threshold
+        this._confidenceThreshold = null; // null = use default from constants
     }
 
     /**
@@ -85,6 +88,9 @@ export class AudioEngine {
                 fftSize: this.analyser.fftSize,
             });
 
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => this.destroy());
+
             return true;
         } catch (error) {
             console.error('[AudioEngine] Failed to initialize:', error);
@@ -100,7 +106,7 @@ export class AudioEngine {
     }
 
     /**
-     * Start the real-time detection loop
+     * Start listening (no longer spawns its own rAF loop — use processFrame())
      */
     start() {
         if (!this.isInitialized) {
@@ -114,12 +120,11 @@ export class AudioEngine {
         }
 
         this.isActive = true;
-        this._runDetectionLoop();
         console.log('[AudioEngine] Detection started');
     }
 
     /**
-     * Stop the detection loop
+     * Stop listening
      */
     stop() {
         this.isActive = false;
@@ -154,9 +159,10 @@ export class AudioEngine {
     }
 
     /**
-     * Internal detection loop - runs every animation frame
+     * Process one frame of pitch detection.
+     * Called from Game loop instead of running its own rAF.
      */
-    _runDetectionLoop() {
+    processFrame() {
         if (!this.isActive) return;
 
         const now = performance.now();
@@ -181,11 +187,17 @@ export class AudioEngine {
 
         if (pitchResult) {
             const { frequency, confidence } = pitchResult;
+            const confThreshold = this._confidenceThreshold || PITCH_CONFIDENCE_THRESHOLD;
 
             // Filter by confidence and frequency range
-            if (confidence >= PITCH_CONFIDENCE_THRESHOLD &&
+            if (confidence >= confThreshold &&
                 frequency >= PITCH_MIN_FREQUENCY &&
                 frequency <= PITCH_MAX_FREQUENCY) {
+
+                // Harmonic filtering: suppress if frequency is a harmonic of current note
+                if (this._isHarmonic(frequency)) {
+                    return; // Skip this detection — likely an overtone
+                }
 
                 this.currentFrequency = frequency;
 
@@ -214,8 +226,37 @@ export class AudioEngine {
                 this.currentNote = null;
             }
         }
+    }
 
-        this._detectLoopId = requestAnimationFrame(() => this._runDetectionLoop());
+    /**
+     * Set confidence threshold override (for difficulty-based tuning)
+     * @param {number} threshold - 0.0 to 1.0
+     */
+    setConfidenceThreshold(threshold) {
+        this._confidenceThreshold = threshold;
+    }
+
+    /**
+     * Check if a frequency is a harmonic (overtone) of the currently held note.
+     * Guitar strings produce strong harmonics at 2x, 3x, 4x the fundamental.
+     * @param {number} frequency
+     * @returns {boolean}
+     */
+    _isHarmonic(frequency) {
+        if (!this.currentNote || !this.currentNote.frequency) return false;
+
+        const baseFreq = this.currentNote.frequency;
+        // Only check if the detected freq is higher than the current note
+        if (frequency <= baseFreq * 1.5) return false;
+
+        for (let h = 2; h <= 4; h++) {
+            const harmonicFreq = baseFreq * h;
+            // 3% tolerance for harmonic matching
+            if (Math.abs(frequency - harmonicFreq) / harmonicFreq < 0.03) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

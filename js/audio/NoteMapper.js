@@ -3,13 +3,10 @@
 // Converts detected frequency to musical note
 // ============================================
 
-import { NOTE_TABLE, NOTE_NAMES } from '../utils/constants.js';
+import { NOTE_NAMES } from '../utils/constants.js';
 
 export class NoteMapper {
     constructor() {
-        // Pre-compute sorted frequency table for binary search
-        this.sortedNotes = [...NOTE_TABLE].sort((a, b) => a.frequency - b.frequency);
-
         // Note stability tracking
         this.lastNote = null;
         this.noteHoldStart = 0;

@@ -4,7 +4,6 @@
 // ============================================
 
 import { Enemy } from './Enemy.js';
-import { PARTICLE_COUNT_ON_KILL, SCREEN_SHAKE_KILL, SCREEN_SHAKE_DAMAGE, COLORS } from '../utils/constants.js';
 import { randomEdgePosition, distance } from '../utils/helpers.js';
 
 export class EnemyManager {
@@ -42,33 +41,26 @@ export class EnemyManager {
     }
 
     /**
-     * Try to match a detected note against active enemies.
-     * Returns the best matching enemy (closest to player).
-     * @param {string} noteName - e.g. "E4"
-     * @param {number} playerX
-     * @param {number} playerY
-     * @returns {{ enemy: Enemy, killed: boolean } | null}
+     * Find the closest enemy matching a note (without applying damage).
+     * Uses single-pass min-distance instead of filter+sort for O(n) performance.
      */
-    matchNote(noteName, playerX, playerY) {
-        // Find all enemies that match this note
-        const matching = this.enemies.filter(e =>
-            !e.dying && e.matchesNote(noteName)
-        );
+    findTarget(noteName, playerX, playerY) {
+        let closest = null;
+        let closestDist = Infinity;
 
-        if (matching.length === 0) return null;
+        for (const e of this.enemies) {
+            if (e.dying || e.projectileIncoming || !e.matchesNote(noteName)) continue;
+            const d = distance(e.x, e.y, playerX, playerY);
+            if (d < closestDist) {
+                closest = e;
+                closestDist = d;
+            }
+        }
 
-        // Prioritize closest enemy to player
-        matching.sort((a, b) => {
-            const distA = distance(a.x, a.y, playerX, playerY);
-            const distB = distance(b.x, b.y, playerX, playerY);
-            return distA - distB;
-        });
-
-        const target = matching[0];
-        const killed = target.hit();
-
-        return { enemy: target, killed };
+        if (closest) closest.projectileIncoming = true;
+        return closest;
     }
+
 
     /**
      * Check for enemies that have reached the player
@@ -90,15 +82,11 @@ export class EnemyManager {
      * Update all enemies
      */
     update(deltaTime, playerX, playerY) {
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            const enemy = this.enemies[i];
+        for (const enemy of this.enemies) {
             enemy.update(deltaTime, playerX, playerY);
-
-            // Remove dead enemies
-            if (!enemy.alive) {
-                this.enemies.splice(i, 1);
-            }
         }
+        // Batch remove dead enemies (single filter instead of per-item splice)
+        this.enemies = this.enemies.filter(e => e.alive);
     }
 
     /**

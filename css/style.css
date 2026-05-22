@@ -846,6 +846,37 @@ html, body {
 }
 
 /* ===================================
+   MOBILE PAUSE BUTTON
+   =================================== */
+.mobile-pause-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 50;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-medium);
+    border-radius: 50%;
+    color: var(--neon-cyan);
+    font-size: 20px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+    transition: all var(--transition-normal);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-pause-btn:active {
+    transform: scale(0.9);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+}
+
+/* ===================================
    RESPONSIVE
    =================================== */
 @media (max-width: 600px) {

@@ -17,6 +17,7 @@ export class Menu {
         this.onStartGame = null;
         this.onRequestCalibration = null;
         this.onTuningRequested = null;
+        this.onCloseTuner = null;
 
         // Calibration state
         this.calibrationActive = false;
@@ -54,11 +55,7 @@ export class Menu {
         const closeTunerBtn = document.getElementById('btn-close-tuner');
         if (closeTunerBtn) {
             closeTunerBtn.addEventListener('click', () => {
-                const overlay = document.getElementById('tuner-overlay');
-                if (overlay) overlay.classList.remove('visible');
-                // Also notify game to stop tuning mode
-                // This is handled via ESC or the button
-                if (window.__game) window.__game._closeTuner();
+                if (this.onCloseTuner) this.onCloseTuner();
             });
         }
 
